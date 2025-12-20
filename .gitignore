@@ -1,0 +1,30 @@
+# Ignore log files and directories
+logs/
+*.log
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment directories
+.venv/
+env/
+.env
+
+# IDE and editor folders
+.vscode/
+.idea/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Test coverage reports
+.coverage
+coverage.xml
+htmlcov/
+
+# Miscellaneous
+.DS_Store
