@@ -1,6 +1,5 @@
 import re
-
-from get_repo_data import read_repo_data
+from pathlib import Path
 
 
 def sliding_window(seq, size, step):
@@ -57,6 +56,7 @@ def split_markdown_by_level(text, level=2):
 def process_repo_chunks(repo, chunking_method_name):
     """
     Processes a repository of documents into chunks using a specified chunking method.
+    extracts metadata for GraphRAG (Folder -> File -> Chunk).
 
     :param repo: A list of document dictionaries, each containing at least a 'content' key.
     :param chunking_method_name: A string indicating the chunking method to use ('sliding_window' or 'split_markdown_by_level').
@@ -66,24 +66,45 @@ def process_repo_chunks(repo, chunking_method_name):
     for doc in repo:
         doc_copy = doc.copy()
         doc_content = doc_copy.pop("content")
+        filename = doc_copy.get("filename", "")
+        
+        # Structure Extraction
+        path = Path(filename)
+        # Using immediate parent as the folder. 
+        # If the structure is strictly Folder/File, this captures the Folder.
+        # If deeply nested, it captures the containing folder.
+        parent = path.parent
+        if str(parent) == ".":
+             folder_name = "root"
+        else:
+             folder_name = parent.name
+
+        file_name = path.name
+
+        doc_copy["folder_name"] = folder_name
+        doc_copy["file_name"] = file_name
+        doc_copy["full_path"] = str(path)
 
         if chunking_method_name == "sliding_window":
             chunks = sliding_window(doc_content, 2000, 1000)
             for chunk in chunks:
-                chunk.update(doc_copy)
-            all_chunks.extend(chunks)
+                chunk_data = doc_copy.copy()
+                chunk_data.update(chunk)
+                all_chunks.append(chunk_data)
         elif chunking_method_name == "split_markdown_by_level":
             sections = split_markdown_by_level(doc_content, level=2)
             for section_content in sections:
-                section_doc = doc_copy.copy()
-                section_doc["section"] = section_content
-                all_chunks.append(section_doc)
+                chunk_data = doc_copy.copy()
+                chunk_data["chunk"] = section_content
+                all_chunks.append(chunk_data)
         else:
             raise ValueError(f"Unsupported chunking method: {chunking_method_name}")
     return all_chunks
 
 
 if __name__ == "__main__":
+    from get_repo_data import read_repo_data
+    
     ml_system_design_repo = read_repo_data("ML-SystemDesign", "MLSystemDesign")
     print(len(ml_system_design_repo))
 
@@ -91,7 +112,5 @@ if __name__ == "__main__":
         ml_system_design_repo, "sliding_window"
     )
     print(len(ml_system_design_chunks))
-    ml_system_design_chunks = process_repo_chunks(
-        ml_system_design_repo, "split_markdown_by_level"
-    )
-    print(len(ml_system_design_chunks))
+    if len(ml_system_design_chunks) > 0:
+        print(ml_system_design_chunks[0])

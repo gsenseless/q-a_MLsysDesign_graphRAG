@@ -1,20 +1,24 @@
+import pretty_errors
 import asyncio
 import logging
+import os
 import re
+from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
 from pydantic_ai import Agent
+from sentence_transformers import SentenceTransformer
 
 from chunking import process_repo_chunks
 from get_repo_data import read_repo_data
-from search import create_docs_index
+from search import create_vector_index
 
 
-def create_repo_agent(docs_index):
-    def text_search_tool(query: str) -> list[Any]:
+def create_repo_agent(docs_vindex, embedding_model):
+    def vector_search_tool(query: str) -> list[Any]:
         """
-        Perform a text-based search on the data index.
+        Perform a vector-based similarity search on the data index.
 
         Args:
             query (str): The search query string.
@@ -22,9 +26,9 @@ def create_repo_agent(docs_index):
         Returns:
             List[Any]: A list of up to 5 search results returned by the data index.
         """
-        from search import text_search
+        from search import vector_search
 
-        return text_search(query, docs_index)
+        return vector_search(query, docs_vindex, embedding_model)
 
     system_prompt = """
     You are a helpful assistant for a ML system design repository. 
@@ -36,104 +40,128 @@ def create_repo_agent(docs_index):
     """
 
     agent = Agent(
-        name="repo_agent_v2",
-        instructions=system_prompt,
-        tools=[text_search_tool],
         model="mistral:mistral-small-latest",
+        system_prompt=system_prompt,
+        tools=[vector_search_tool],
     )
 
     return agent
 
 
-def prettify_trace_log(trace: str) -> str:
+def generate_report(result: Any, query: str) -> str:
     """
-    Convert a raw LLM trace log into a readable, structured format.
+    Generate a detailed markdown report for the agent run.
     """
+    messages = []
+    final_output = None
 
-    output = []
-    run_id_match = re.search(r"run_id='([^']+)'", trace)
-    run_id = run_id_match.group(1) if run_id_match else "UNKNOWN"
+    if hasattr(result, "new_messages"):
+        messages = result.new_messages()
+        final_output = getattr(result, "output", getattr(result, "data", None))
+    elif isinstance(result, list):
+        messages = result
+    else:
+        return f"Could not generate report for type {type(result)}"
 
-    output.append(f"=== RUN {run_id} ===\n")
+    report = []
+    report.append(f"# Agent Run Report")
+    report.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    report.append(f"")
+    
+    report.append("## 1. Question")
+    report.append(f"> {query}")
+    report.append("")
 
-    # --- User prompt ---
-    user_prompt_matches = re.findall(r"UserPromptPart\(content='([^']+)'", trace)
-    for prompt in user_prompt_matches:
-        output.append("[USER PROMPT]")
-        output.append(prompt)
-        output.append("")
+    report.append("## 2. Relevant Chunks & Search Chain")
+    
+    found_chunks = False
+    for message in messages:
+        parts = getattr(message, "parts", [])
+        for part in parts:
+            kind = getattr(part, "part_kind", "unknown")
+            if kind == "tool-return":
+                content = getattr(part, "content", None)
+                if isinstance(content, list):
+                    found_chunks = True
+                    for i, item in enumerate(content):
+                        if isinstance(item, dict):
+                            report.append(f"### Chunk {i+1}")
+                            
+                            # Extract details
+                            chunk_text = item.get("chunk", "")
+                            filename = item.get("filename", "unknown")
+                            folder = item.get("folder", "unknown")
+                            score = item.get("score", 0.0)
+                            chunk_score = item.get("chunk_score", 0.0)
+                            folder_bonus = item.get("folder_bonus", 0.0)
+                            file_bonus = item.get("file_bonus", 0.0)
+                            
+                            # Format chain
+                            report.append(f"**Chain:** `(Folder: {folder})` -> `(File: {filename})` -> `(Chunk)`")
+                            report.append(f"**Score Details:** Total: {score:.4f} (Chunk: {chunk_score:.4f} + Folder Bonus: {folder_bonus*0.5:.4f} + File Bonus: {file_bonus*0.5:.4f})")
+                            
+                            report.append("```text")
+                            report.append(chunk_text.strip())
+                            report.append("```")
+                            report.append("")
+    
+    if not found_chunks:
+        report.append("_No chunks found or tool not called._")
+    report.append("")
 
-    # --- Tool calls ---
-    tool_calls = re.findall(r"ToolCallPart\(tool_name='([^']+)', args='([^']+)'", trace)
-    for tool, args in tool_calls:
-        output.append("[MODEL → TOOL CALL]")
-        output.append(f"Tool: {tool}")
-        output.append(f"Args: {args}")
-        output.append("")
+    report.append("## 3. Model Answer")
+    if final_output:
+        report.append(str(final_output))
+    else:
+        # Try to find the last text part
+        last_text = ""
+        for message in reversed(messages):
+            parts = getattr(message, "parts", [])
+            for part in parts:
+                if getattr(part, "part_kind", "") == "text":
+                    last_text = getattr(part, "content", "")
+                    break
+            if last_text:
+                break
+        report.append(last_text if last_text else "_No answer generated._")
 
-    # --- Tool returns ---
-    tool_returns = re.findall(
-        r"ToolReturnPart\(tool_name='([^']+)', content=\[(.*?)\], tool_call_id",
-        trace,
-        re.DOTALL,
-    )
-
-    for tool, content in tool_returns:
-        output.append("[TOOL RESULT]")
-        output.append(f"Tool: {tool}")
-
-        chunks = re.findall(
-            r"'chunk': '(.+?)', 'filename': '(.+?)'",
-            content,
-            re.DOTALL,
-        )
-
-        for chunk, filename in chunks[:2]:  # limit noise
-            snippet = chunk.replace("\n", " ").strip()
-            snippet = snippet[:300] + ("..." if len(snippet) > 300 else "")
-            output.append(f"Source: {filename}")
-            output.append(f"Snippet: {snippet}")
-
-        output.append("")
-
-    # --- Model responses ---
-    responses = re.findall(
-        r"TextPart\(content='(.+?)'\)\]",
-        trace,
-        re.DOTALL,
-    )
-
-    for response in responses:
-        clean_response = response.replace("\\n", "\n").strip()
-        output.append("[MODEL RESPONSE]")
-        output.append(clean_response)
-        output.append("")
-
-    return "\n".join(output)
+    return "\n".join(report)
 
 
 if __name__ == "__main__":
     load_dotenv(".env")
 
     ml_system_design_repo = read_repo_data("ML-SystemDesign", "MLSystemDesign")
-    print(len(ml_system_design_repo))
+    print(f"Repo length: {len(ml_system_design_repo)}")
 
     ml_system_design_chunks = process_repo_chunks(
         ml_system_design_repo, "sliding_window"
     )
-    print(len(ml_system_design_chunks))
+    print(f"Chunks length: {len(ml_system_design_chunks)}")
 
-    docs_index = create_docs_index(ml_system_design_chunks)
+    embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
+    docs_vindex = create_vector_index(ml_system_design_chunks)
 
     ### -----
-    agent = create_repo_agent(docs_index)
+    agent = create_repo_agent(docs_vindex, embedding_model)
 
-    question = "list essential sections of ml system design doc?"
+#    question = "list essential sections of ml system design doc?"
+    question = "typical chapters in ML sys design doc"
 
     result = asyncio.run(agent.run(user_prompt=question))
 
     print(result)
 
-    # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    logging.info(result.new_messages())
-    print(prettify_trace_log(str(result.new_messages())))
+
+
+    # Generate and save report
+    report_content = generate_report(result, question)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    reports_dir = "reports"
+    os.makedirs(reports_dir, exist_ok=True)
+    
+    report_filename = os.path.join(reports_dir, f"report_{timestamp}.md")
+    with open(report_filename, "w") as f:
+        f.write(report_content)
+    print(f"\nReport saved to {report_filename}")

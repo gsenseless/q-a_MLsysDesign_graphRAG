@@ -1,3 +1,4 @@
+import pretty_errors
 import json
 import random
 import secrets
@@ -11,10 +12,11 @@ from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 from tqdm.auto import tqdm
 
+from sentence_transformers import SentenceTransformer
 from agent import create_repo_agent
 from chunking import process_repo_chunks
 from get_repo_data import read_repo_data
-from search import create_docs_index
+from search import create_vector_index
 
 
 class EvaluationCheck(BaseModel):
@@ -277,9 +279,10 @@ async def generate_logs(log_dir):
 
     repo_data = ml_system_design_repo
 
-    docs_index = create_docs_index(ml_system_design_chunks)
+    embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
+    docs_vindex = create_vector_index(ml_system_design_chunks)
 
-    agent = create_repo_agent(docs_index)
+    agent = create_repo_agent(docs_vindex, embedding_model)
 
     _, question_generator = setup_agents()
 
