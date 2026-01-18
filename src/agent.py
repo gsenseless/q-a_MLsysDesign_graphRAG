@@ -1,5 +1,4 @@
 import pretty_errors
-import asyncio
 import logging
 import os
 import re
@@ -40,6 +39,7 @@ def create_repo_agent(docs_vindex, embedding_model):
     """
 
     agent = Agent(
+        ### TODO: use more advanced model than in agent.py
         model="mistral:mistral-small-latest",
         system_prompt=system_prompt,
         tools=[vector_search_tool],
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 #    question = "list essential sections of ml system design doc?"
     question = "typical chapters in ML sys design doc"
 
-    result = asyncio.run(agent.run(user_prompt=question))
+    result = agent.run_sync(user_prompt=question)
 
     print(result)
 
