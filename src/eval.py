@@ -117,7 +117,14 @@ async def evaluate_log_record(eval_agent, log_record, user_prompt_format):
     messages = log_record["messages"]
 
     instructions = log_record["system_prompt"]
-    question = messages[0]["parts"][0]["content"]
+    question = "Unknown Question"
+    for m in messages:
+        for part in m["parts"]:
+            if part["part_kind"] == "user-prompt":
+                question = part["content"]
+                break
+        if question != "Unknown Question":
+            break
     answer = messages[-1]["parts"][0]["content"]
 
     log_simplified = simplify_log_messages(messages)
@@ -168,7 +175,7 @@ Generate one question for each record.
 """.strip()
 
 
-def setup_agents():
+def setup_eval_agent():
     evaluation_prompt = get_evaluation_prompt()
     eval_agent = Agent(
         name="eval_agent",
@@ -176,7 +183,10 @@ def setup_agents():
         instructions=evaluation_prompt,
         output_type=EvaluationChecklist,
     )
+    return eval_agent
 
+
+def setup_question_generator():
     question_generation_prompt = get_question_generation_prompt()
     question_generator = Agent(
         name="question_generator",
@@ -184,18 +194,28 @@ def setup_agents():
         model="mistral:mistral-small-latest",
         output_type=QuestionsList,
     )
+    return question_generator
 
-    return eval_agent, question_generator
+
+def setup_agents():
+    return setup_eval_agent(), setup_question_generator()
 
 
-async def generate_test_questions(question_generator, repo_data, num_samples=2):
+async def generate_test_questions(question_generator, repo_data, num_samples=10):
     """Generate test questions from data samples."""
+    num_samples = min(num_samples, len(repo_data))
     sample = random.sample(repo_data, num_samples)
-    prompt_docs = [d["content"] for d in sample]
-    prompt = json.dumps(prompt_docs)
 
-    result = await question_generator.run(prompt)
-    questions = result.output.questions
+    questions = []
+    batch_size = 5
+
+    for i in tqdm(range(0, len(sample), batch_size), desc="Generating questions"):
+        batch = sample[i : i + batch_size]
+        prompt_docs = [d["content"] for d in batch]
+        prompt = json.dumps(prompt_docs)
+
+        result = await question_generator.run(prompt)
+        questions.extend(result.output.questions)
 
     return questions
 
@@ -249,9 +269,19 @@ def create_results_dataframe(eval_results):
     for log_record, eval_result in eval_results:
         messages = log_record["messages"]
 
+        # Find the user question
+        question = "Unknown Question"
+        for m in messages:
+            for part in m["parts"]:
+                if part["part_kind"] == "user-prompt":
+                    question = part["content"]
+                    break
+            if question != "Unknown Question":
+                break
+
         row = {
             "file": log_record["log_file"].name,
-            "question": messages[0]["parts"][0]["content"],
+            "question": question,
             "answer": messages[-1]["parts"][0]["content"],
         }
 
@@ -265,6 +295,9 @@ def create_results_dataframe(eval_results):
 
 
 async def generate_logs(log_dir):
+    if log_dir.exists():
+        for f in log_dir.glob("*.json"):
+            f.unlink()
     log_dir.mkdir(exist_ok=True)
 
     load_dotenv(".env")
@@ -287,7 +320,7 @@ async def generate_logs(log_dir):
     _, question_generator = setup_agents()
 
     questions = await generate_test_questions(
-        question_generator, repo_data, num_samples=2
+        question_generator, repo_data, num_samples=10
     )
 
     # Run agent on questions

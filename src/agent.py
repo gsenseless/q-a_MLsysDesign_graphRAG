@@ -15,15 +15,15 @@ from search import create_vector_index
 
 
 def create_repo_agent(docs_vindex, embedding_model):
-    def vector_search_tool(query: str) -> list[Any]:
+    def get_context(query: str) -> list[Any]:
         """
-        Perform a vector-based similarity search on the data index.
+        Retrieve relevant technical fragments from the repository.
 
         Args:
-            query (str): The search query string.
+            query (str): The query string.
 
         Returns:
-            List[Any]: A list of up to 5 search results returned by the data index.
+            List[Any]: A list of up to 5 relevant fragments.
         """
         from search import vector_search
 
@@ -32,17 +32,16 @@ def create_repo_agent(docs_vindex, embedding_model):
     system_prompt = """
     You are a helpful assistant for a ML system design repository. 
 
-    Use the search tool to find relevant information from the repository before answering questions.
+    Use the available tools to find relevant information from the repository before answering questions.
 
-    If you can find specific information through search, use it to provide accurate answers.
-    If the search doesn't return relevant results, let the user know and provide general guidance.
+    If you can find specific information, use it to provide accurate answers.
+    If no relevant results are found, let the user know and provide general guidance.
     """
 
     agent = Agent(
-        ### TODO: use more advanced model than in agent.py
         model="mistral:mistral-small-latest",
         system_prompt=system_prompt,
-        tools=[vector_search_tool],
+        tools=[get_context],
     )
 
     return agent
