@@ -17,10 +17,12 @@ NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 import sys
+
 logging.basicConfig(
     level=logging.INFO,
-    stream=sys.stdout  # Redirects from stderr to stdout
+    stream=sys.stdout,  # Redirects from stderr to stdout
 )
+
 
 class Neo4jGraphIndex:
     def __init__(self, uri, auth):
@@ -29,6 +31,7 @@ class Neo4jGraphIndex:
 
     def verify_connection(self):
         import time
+
         max_retries = 5
         for i in range(max_retries):
             try:
@@ -37,10 +40,14 @@ class Neo4jGraphIndex:
                 return
             except Exception as e:
                 if i < max_retries - 1:
-                    logging.warning(f"Failed to connect to Neo4j (attempt {i+1}/{max_retries}), retrying in 5s... {e}")
+                    logging.warning(
+                        f"Failed to connect to Neo4j (attempt {i + 1}/{max_retries}), retrying in 5s... {e}"
+                    )
                     time.sleep(5)
                 else:
-                    logging.error(f"Failed to connect to Neo4j after {max_retries} attempts: {e}")
+                    logging.error(
+                        f"Failed to connect to Neo4j after {max_retries} attempts: {e}"
+                    )
                     raise e
 
     def close(self):
@@ -48,8 +55,8 @@ class Neo4jGraphIndex:
 
     def query(self, cypher, params=None):
         logging.info(f"Executing Cypher: {cypher}")
-      #  if params:
-      #      logging.info(f"With params: {params}")
+        #  if params:
+        #      logging.info(f"With params: {params}")
         with self.driver.session() as session:
             result = session.run(cypher, params or {})
             data = [record.data() for record in result]
@@ -58,8 +65,12 @@ class Neo4jGraphIndex:
 
     def create_constraints(self):
         # Create uniqueness constraints
-        self.query("CREATE CONSTRAINT IF NOT EXISTS FOR (f:Folder) REQUIRE f.path IS UNIQUE")
-        self.query("CREATE CONSTRAINT IF NOT EXISTS FOR (f:File) REQUIRE f.path IS UNIQUE")
+        self.query(
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (f:Folder) REQUIRE f.path IS UNIQUE"
+        )
+        self.query(
+            "CREATE CONSTRAINT IF NOT EXISTS FOR (f:File) REQUIRE f.path IS UNIQUE"
+        )
 
     def create_vector_index(self, embedding_dim=768):
         # Create vector index on Chunk embedding
@@ -104,23 +115,23 @@ class Neo4jGraphIndex:
         """
         processed_batch = []
         for c in chunks:
-            path = Path(c['filename'])
+            path = Path(c["filename"])
             folder_path = str(path.parent)
             c_copy = c.copy()
-            c_copy['folder_path'] = folder_path
+            c_copy["folder_path"] = folder_path
             processed_batch.append(c_copy)
 
         batch_size = 100
         for i in range(0, len(processed_batch), batch_size):
             batch = processed_batch[i : i + batch_size]
-            self.query(cypher, {'batch': batch})
+            self.query(cypher, {"batch": batch})
 
     def search_vector(self, query_embedding, num_results=5):
         # 1. Search for relevant folders
         # 2. Search for relevant files
         # 3. Search for relevant chunks (with higher limit)
         # 4. Boost chunks that are in relevant folders and files
-        
+
         cypher = """
         CALL db.index.vector.queryNodes('folder_vector_index', 10, $embedding)
         YIELD node as folder, score as folder_score
@@ -156,11 +167,14 @@ class Neo4jGraphIndex:
         LIMIT $limit
         """
         candidate_limit = num_results * 10
-        results = self.query(cypher, {
-            'embedding': query_embedding, 
-            'limit': num_results,
-            'candidate_limit': candidate_limit
-        })
+        results = self.query(
+            cypher,
+            {
+                "embedding": query_embedding,
+                "limit": num_results,
+                "candidate_limit": candidate_limit,
+            },
+        )
         logging.info(f"Vector search found {len(results)} results")
         if results:
             logging.info(f"Top result score: {results[0]['score']}")
@@ -169,36 +183,40 @@ class Neo4jGraphIndex:
     def add_embeddings(self, chunks, embedding_model):
         for i in range(0, len(chunks), 100):
             batch = chunks[i : i + 100]
-            texts = [c['chunk'] for c in batch]
+            texts = [c["chunk"] for c in batch]
             embeddings = embedding_model.encode(texts)
-            
+
             # Encode unique folder names in this batch
-            folder_names = [c.get('folder_name', 'root') for c in batch]
+            folder_names = [c.get("folder_name", "root") for c in batch]
             unique_folders = list(set(folder_names))
-            folder_emb_map = dict(zip(unique_folders, embedding_model.encode(unique_folders)))
+            folder_emb_map = dict(
+                zip(unique_folders, embedding_model.encode(unique_folders))
+            )
 
             # Encode unique file names in this batch
-            file_names = [c.get('file_name', 'unknown') for c in batch]
+            file_names = [c.get("file_name", "unknown") for c in batch]
             unique_files = list(set(file_names))
             file_emb_map = dict(zip(unique_files, embedding_model.encode(unique_files)))
-            
+
             update_data = []
             for j, text in enumerate(texts):
-                p = Path(batch[j].get('filename', 'unknown'))
-                folder_name = batch[j].get('folder_name', 'root')
-                file_name = batch[j].get('file_name', 'unknown')
-                
-                update_data.append({
-                    'text': text,
-                    'embedding': embeddings[j].tolist(),
-                    'folder_name': folder_name,
-                    'folder_embedding': folder_emb_map[folder_name].tolist(),
-                    'folder_path': str(p.parent),
-                    'file_name': file_name,
-                    'file_embedding': file_emb_map[file_name].tolist(),
-                    'full_path': batch[j].get('full_path', 'unknown')
-                })
-            
+                p = Path(batch[j].get("filename", "unknown"))
+                folder_name = batch[j].get("folder_name", "root")
+                file_name = batch[j].get("file_name", "unknown")
+
+                update_data.append(
+                    {
+                        "text": text,
+                        "embedding": embeddings[j].tolist(),
+                        "folder_name": folder_name,
+                        "folder_embedding": folder_emb_map[folder_name].tolist(),
+                        "folder_path": str(p.parent),
+                        "file_name": file_name,
+                        "file_embedding": file_emb_map[file_name].tolist(),
+                        "full_path": batch[j].get("full_path", "unknown"),
+                    }
+                )
+
             cypher = """
             UNWIND $batch AS item
             MERGE (f:Folder {path: item.folder_path})
@@ -213,18 +231,19 @@ class Neo4jGraphIndex:
             ON MATCH SET c.embedding = item.embedding
             MERGE (d)-[:HAS_CHUNK]->(c)
             """
-            self.query(cypher, {'batch': update_data})
+            self.query(cypher, {"batch": update_data})
 
 
 def create_vector_index(chunks):
     embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
     embedding_dim = embedding_model.get_sentence_embedding_dimension()
-    
+
     index = Neo4jGraphIndex(NEO4J_URI, (NEO4J_USERNAME, NEO4J_PASSWORD))
     index.create_constraints()
     index.create_vector_index(embedding_dim)
     index.add_embeddings(chunks, embedding_model)
     return index
+
 
 def vector_search(query, docs_vindex, embedding_model):
     q_embedding = embedding_model.encode(query).tolist()
@@ -242,7 +261,7 @@ if __name__ == "__main__":
 
     embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
     docs_vindex = create_vector_index(ml_system_design_chunks)
-    
+
     query = "list essential sections of ml system design doc?"
     results = vector_search(query, docs_vindex, embedding_model)
     print(f"Vector Search Results: {len(results)}")

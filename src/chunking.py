@@ -67,17 +67,17 @@ def process_repo_chunks(repo, chunking_method_name):
         doc_copy = doc.copy()
         doc_content = doc_copy.pop("content")
         filename = doc_copy.get("filename", "")
-        
+
         # Structure Extraction
         path = Path(filename)
-        # Using immediate parent as the folder. 
+        # Using immediate parent as the folder.
         # If the structure is strictly Folder/File, this captures the Folder.
         # If deeply nested, it captures the containing folder.
         parent = path.parent
         if str(parent) == ".":
-             folder_name = "root"
+            folder_name = "root"
         else:
-             folder_name = parent.name
+            folder_name = parent.name
 
         file_name = path.name
 
@@ -104,7 +104,7 @@ def process_repo_chunks(repo, chunking_method_name):
 
 if __name__ == "__main__":
     from get_repo_data import read_repo_data
-    
+
     ml_system_design_repo = read_repo_data("ML-SystemDesign", "MLSystemDesign")
     print(len(ml_system_design_repo))
 

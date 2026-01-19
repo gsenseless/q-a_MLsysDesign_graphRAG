@@ -66,13 +66,13 @@ def generate_report(result: Any, query: str) -> str:
     report.append(f"# Agent Run Report")
     report.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     report.append(f"")
-    
+
     report.append("## 1. Question")
     report.append(f"> {query}")
     report.append("")
 
     report.append("## 2. Relevant Chunks & Search Chain")
-    
+
     found_chunks = False
     for message in messages:
         parts = getattr(message, "parts", [])
@@ -84,8 +84,8 @@ def generate_report(result: Any, query: str) -> str:
                     found_chunks = True
                     for i, item in enumerate(content):
                         if isinstance(item, dict):
-                            report.append(f"### Chunk {i+1}")
-                            
+                            report.append(f"### Chunk {i + 1}")
+
                             # Extract details
                             chunk_text = item.get("chunk", "")
                             filename = item.get("filename", "unknown")
@@ -94,16 +94,20 @@ def generate_report(result: Any, query: str) -> str:
                             chunk_score = item.get("chunk_score", 0.0)
                             folder_bonus = item.get("folder_bonus", 0.0)
                             file_bonus = item.get("file_bonus", 0.0)
-                            
+
                             # Format chain
-                            report.append(f"**Chain:** `(Folder: {folder})` -> `(File: {filename})` -> `(Chunk)`")
-                            report.append(f"**Score Details:** Total: {score:.4f} (Chunk: {chunk_score:.4f} + Folder Bonus: {folder_bonus*0.5:.4f} + File Bonus: {file_bonus*0.5:.4f})")
-                            
+                            report.append(
+                                f"**Chain:** `(Folder: {folder})` -> `(File: {filename})` -> `(Chunk)`"
+                            )
+                            report.append(
+                                f"**Score Details:** Total: {score:.4f} (Chunk: {chunk_score:.4f} + Folder Bonus: {folder_bonus * 0.5:.4f} + File Bonus: {file_bonus * 0.5:.4f})"
+                            )
+
                             report.append("```text")
                             report.append(chunk_text.strip())
                             report.append("```")
                             report.append("")
-    
+
     if not found_chunks:
         report.append("_No chunks found or tool not called._")
     report.append("")
@@ -144,22 +148,20 @@ if __name__ == "__main__":
     ### -----
     agent = create_repo_agent(docs_vindex, embedding_model)
 
-#    question = "list essential sections of ml system design doc?"
+    #    question = "list essential sections of ml system design doc?"
     question = "typical chapters in ML sys design doc"
 
     result = agent.run_sync(user_prompt=question)
 
     print(result)
 
-
-
     # Generate and save report
     report_content = generate_report(result, question)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+
     reports_dir = "reports"
     os.makedirs(reports_dir, exist_ok=True)
-    
+
     report_filename = os.path.join(reports_dir, f"report_{timestamp}.md")
     with open(report_filename, "w") as f:
         f.write(report_content)
