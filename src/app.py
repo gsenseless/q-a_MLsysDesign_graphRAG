@@ -1,29 +1,27 @@
+
 import streamlit as st
-import os
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
-from get_repo_data import read_repo_data
-from chunking import process_repo_chunks
-from search import create_vector_index
 from agent import create_repo_agent
+from chunking import process_repo_chunks
+from get_repo_data import read_repo_data
+from search import create_vector_index
 
 load_dotenv(".env")
 
 # Import evaluation modules
-import random
 import json
-import pandas as pd
+import random
 from pathlib import Path
+
 from eval import (
+    create_results_dataframe,
+    log_entry,
+    serializer,
     setup_eval_agent,
     setup_question_generator,
-    log_entry,
-    evaluate_log_record,
-    get_evaluation_prompt,
     simplify_log_messages,
-    serializer,
-    create_results_dataframe,
 )
 
 # Page config
@@ -155,7 +153,7 @@ with tab_eval:
             q_gen_result = question_generator.run_sync(prompt_json)
             questions = q_gen_result.output.questions
 
-            st.write(f"**Generated Questions:**")
+            st.write("**Generated Questions:**")
             st.json(questions)
 
             # 3. Run Agent and Evaluate

@@ -1,10 +1,8 @@
-import pretty_errors
-import logging
 import os
-import re
 from datetime import datetime
 from typing import Any
 
+import pretty_errors  # noqa: F401
 from dotenv import load_dotenv
 from pydantic_ai import Agent
 from sentence_transformers import SentenceTransformer
@@ -63,9 +61,9 @@ def generate_report(result: Any, query: str) -> str:
         return f"Could not generate report for type {type(result)}"
 
     report = []
-    report.append(f"# Agent Run Report")
+    report.append("# Agent Run Report")
     report.append(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report.append(f"")
+    report.append("")
 
     report.append("## 1. Question")
     report.append(f"> {query}")

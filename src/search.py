@@ -1,10 +1,11 @@
-import pretty_errors
-import os
 import logging
+import os
 from pathlib import Path
+
+import pretty_errors  # noqa: F401
+from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from sentence_transformers import SentenceTransformer
-from dotenv import load_dotenv
 
 from chunking import process_repo_chunks
 from get_repo_data import read_repo_data

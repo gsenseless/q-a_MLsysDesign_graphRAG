@@ -1,8 +1,8 @@
-import pretty_errors
 import io
 import zipfile
 
 import frontmatter
+import pretty_errors  # noqa: F401
 import requests
 
 

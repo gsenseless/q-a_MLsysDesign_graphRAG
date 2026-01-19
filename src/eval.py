@@ -1,4 +1,3 @@
-import pretty_errors
 import json
 import random
 import secrets
@@ -6,13 +5,14 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
+import pretty_errors  # noqa: F401
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessagesTypeAdapter
+from sentence_transformers import SentenceTransformer
 from tqdm.auto import tqdm
 
-from sentence_transformers import SentenceTransformer
 from agent import create_repo_agent
 from chunking import process_repo_chunks
 from get_repo_data import read_repo_data
