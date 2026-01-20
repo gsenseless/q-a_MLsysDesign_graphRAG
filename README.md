@@ -49,26 +49,35 @@ Using `uv`:
 uv sync
 ```
 
-Or using standard pip (if not using uv):
+## Streamlit UI
+
+The project includes a Streamlit-based web interface for an interactive Q&A experience and automated evaluation.
+
+To run the Streamlit app:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install .
+uv run streamlit run src/app.py
 ```
 
-## Running the Agent
+## Evaluation
 
-To run the main agent script:
+The repository features a robust evaluation framework to benchmark agent performance.
 
-```bash
-uv run src/agent.py
-```
+### How it Works (UI)
 
-## Project Structure
+Navigate to the **Evaluation** tab in the Streamlit UI to:
+1. **Generate Questions**: Automatically creates test questions based on repository content using an LLM.
+2. **Run Benchmark**: Executes the agent on the generated questions.
+3. **Analyze Results**: View a detailed breakdown of performance metrics, including passing rates for:
+    - instruction_follow
+    - answer_relevant
+    - answer_clear
+    - answer_citations
+    - completeness
+    - tool_call_search
 
-- `src/agent.py`: Main agent logic using PydanticAI.
-- `src/search.py`: Neo4j GraphIndex implementation for GraphRAG.
-- `src/chunking.py`: Document processing and chunking logic.
-- `src/get_repo_data.py`: GitHub repository data retrieval.
-- `src/eval.py`: Evaluation scripts (if applicable).
+### Logic Implementation (`src/eval.py`)
+
+- **Question Generation**: Uses a Mistral model to generate diverse questions from randomly sampled document chunks.
+- **Automated Scoring**: An independent `eval_agent` (LLM-based) evaluates the agent's responses against a predefined checklist.
+
