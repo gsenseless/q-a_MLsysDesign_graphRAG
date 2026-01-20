@@ -1,6 +1,8 @@
 # ML System Design Repository Agent (GraphRAG)
 
-This project is a GraphRAG-based agent designed to answer questions about ML system design based on a GitHub repository's markdown files.
+This project is a GraphRAG-based agent designed to answer questions about ML system design based on the [ML System Design](https://github.com/ML-SystemDesign/MLSystemDesign) repository's markdown files.
+
+
 
 ## Prerequisites
 
@@ -49,7 +51,7 @@ Using `uv`:
 uv sync
 ```
 
-## Streamlit UI
+## Streamlit UI (Usage)
 
 The project includes a Streamlit-based web interface for an interactive Q&A experience and automated evaluation.
 
@@ -59,13 +61,27 @@ To run the Streamlit app:
 uv run streamlit run src/app.py
 ```
 
+![Streamlit UI](assets/images/image.png)
+
+![Source Attribution](assets/images/image-1.png)
+
+
+Navigate to `http://localhost:8501` in your web browser to access the Streamlit interface.
+![alt text](image.png)
+
+Ask a question and view the sources used to generate the answer:
+![alt text](image-1.png)
+
 ## Evaluation
 
 The repository features a robust evaluation framework to benchmark agent performance.
 
 ### How it Works:
-
+![alt text](image-2.png)
 Navigate to the **Evaluation** tab in the Streamlit UI to:
+
+![Agent Evaluation](assets/images/image-2.png)
+
 1. **Generate Questions**: Automatically creates test questions based on repository content using an LLM.
 2. **Run Benchmark**: Executes the agent on the generated questions.
 3. **Analyze Results**: View a detailed breakdown of performance metrics, including passing rates for:
@@ -76,7 +92,7 @@ Navigate to the **Evaluation** tab in the Streamlit UI to:
     - completeness
     - tool_call_search
 
-## Logic Implementation (`src/eval.py`)
+#### Logic Implementation (`src/eval.py`)
 
 - **Question Generation**: Uses a Mistral model to generate diverse questions from randomly sampled document chunks.
 - **Automated Scoring**: An independent `eval_agent` (LLM-based) evaluates the agent's responses against a predefined checklist.
