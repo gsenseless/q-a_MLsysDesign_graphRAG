@@ -5,7 +5,8 @@ description = "ML System Design Repository Agent"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pydantic-ai",
+    "pydantic-ai<1.37.0",
+    "mistralai>=1.10.1",
     "python-dotenv",
     "numpy",
     "neo4j",
