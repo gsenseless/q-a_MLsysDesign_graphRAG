@@ -151,6 +151,7 @@ with tab_eval:
 
             q_gen_result = question_generator.run_sync(prompt_json)
             questions = q_gen_result.output.questions
+            questions = random.sample(questions, min(len(questions), 30))
 
             st.write("**Generated Questions:**")
             st.json(questions)

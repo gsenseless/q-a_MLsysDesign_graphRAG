@@ -12,9 +12,6 @@ from get_repo_data import read_repo_data
 from search import create_vector_index
 
 
-from pydantic_ai.models.openai import OpenAIModel
-
-
 def create_repo_agent(docs_vindex, embedding_model):
     def get_context(query: str) -> list[Any]:
         """
