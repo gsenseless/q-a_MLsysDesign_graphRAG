@@ -145,13 +145,22 @@ with tab_eval:
             # 2. Generate Questions
             status_container.write("Generating test questions from repository data...")
             # We use run_sync manually here to match the sync context
-            sample = random.sample(repo_data, 5)  # Generate 2 questions as per default
-            prompt_docs = [d["content"] for d in sample]
-            prompt_json = json.dumps(prompt_docs)
+            sample = random.sample(repo_data, 10)
+            questions = []
+            for item in sample:
+                try:
+                    q_gen_result = question_generator.run_sync(json.dumps(item))
+                    questions.extend(q_gen_result.output.questions)
+                except Exception as e:
+                    status_container.warning(f"Error generating question from sample: {e}")
+            
+            if not questions:
+                st.error("Failed to generate any questions. Aborting evaluation.")
+                st.stop()
+            
+            questions = random.sample(questions, min(len(questions), 50))
+            
 
-            q_gen_result = question_generator.run_sync(prompt_json)
-            questions = q_gen_result.output.questions
-            questions = random.sample(questions, min(len(questions), 30))
 
             st.write("**Generated Questions:**")
             st.json(questions)
@@ -177,39 +186,43 @@ with tab_eval:
 
                 # a. Run Agent
                 repo_agent = create_repo_agent(docs_vindex, embedding_model)
-                run_result = repo_agent.run_sync(user_prompt=q)
+                try:
+                    run_result = repo_agent.run_sync(user_prompt=q)
 
-                # b. Log
-                new_msgs = run_result.new_messages()
-                log_record = log_entry(repo_agent, new_msgs, source="ai-generated")
-                log_record["log_file"] = Path(f"question_{i + 1}.json")
+                    # b. Log
+                    new_msgs = run_result.new_messages()
+                    log_record = log_entry(repo_agent, new_msgs, source="ai-generated")
+                    log_record["log_file"] = Path(f"question_{i + 1}.json")
 
-                messages = log_record["messages"]
-                instructions = log_record["system_prompt"]
-                question_text = "Unknown Question"
-                for m in messages:
-                    for part in m["parts"]:
-                        if part["part_kind"] == "user-prompt":
-                            question_text = part["content"]
+                    messages = log_record["messages"]
+                    instructions = log_record["system_prompt"]
+                    question_text = "Unknown Question"
+                    for m in messages:
+                        for part in m["parts"]:
+                            if part["part_kind"] == "user-prompt":
+                                question_text = part["content"]
+                                break
+                        if question_text != "Unknown Question":
                             break
-                    if question_text != "Unknown Question":
-                        break
-                answer_text = messages[-1]["parts"][0]["content"]
+                    answer_text = messages[-1]["parts"][0]["content"]
 
-                log_simplified = simplify_log_messages(messages)
-                log_str = json.dumps(log_simplified, default=serializer)
+                    log_simplified = simplify_log_messages(messages)
+                    log_str = json.dumps(log_simplified, default=serializer)
 
-                eval_prompt = user_prompt_format.format(
-                    instructions=instructions,
-                    question=question_text,
-                    answer=answer_text,
-                    log=log_str,
-                )
+                    eval_prompt = user_prompt_format.format(
+                        instructions=instructions,
+                        question=question_text,
+                        answer=answer_text,
+                        log=log_str,
+                    )
 
-                eval_result_obj = eval_agent.run_sync(eval_prompt)
-                eval_result = eval_result_obj.output
+                    eval_result_obj = eval_agent.run_sync(eval_prompt)
+                    eval_result = eval_result_obj.output
 
-                eval_results.append((log_record, eval_result))
+                    eval_results.append((log_record, eval_result))
+                except Exception as e:
+                    status_container.warning(f"Skipping question due to error: {e}")
+                
                 eval_progress.progress((i + 1) / len(questions))
 
             status_container.update(

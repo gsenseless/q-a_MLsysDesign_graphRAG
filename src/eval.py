@@ -148,20 +148,19 @@ For each item, check if the condition is met.
 Checklist:
 
 - instructions_follow: The agent followed the user's instructions (in <INSTRUCTIONS>)
-- instructions_avoid: The agent avoided doing things it was told not to do  
 - answer_relevant: The response directly addresses the user's question  
 - answer_clear: The answer is clear and correct  
 - answer_citations: The response includes proper citations or sources when required  
 - completeness: The response is complete and covers all key aspects of the request
 - tool_call_search: Is the search tool invoked? 
 
-Output true/false for each check and provide a short explanation for your judgment.
+Output true/false for each check.
 """.strip()
 
 
 def get_question_generation_prompt():
     return """
-You are helping to create test questions for an AI agent that answers questions about a data engineering course.
+You are helping to create test questions for an AI agent that answers questions about ML system design.
 
 Based on the provided content, generate realistic questions that readers might ask.
 
@@ -171,7 +170,6 @@ The questions should:
 - Range from simple to complex
 - Include both specific technical questions and general questions
 
-Generate one question for each record.
 """.strip()
 
 
@@ -225,12 +223,16 @@ async def run_agent_on_questions(agent, questions, log_dir):
     for q in tqdm(questions):
         print(q)
 
-        result = await agent.run(user_prompt=q)
-        print(result.output)
+        try:
+            result = await agent.run(user_prompt=q)
+            print(result.output)
 
-        log_interaction_to_file(
-            agent, result.new_messages(), log_dir, source="ai-generated"
-        )
+            log_interaction_to_file(
+                agent, result.new_messages(), log_dir, source="ai-generated"
+            )
+        except Exception as e:
+            print(f"Error running agent on question '{q}': {e}")
+            continue
 
         print()
 
@@ -255,10 +257,14 @@ async def evaluate_logs(eval_agent, eval_set, user_prompt_format):
     """Evaluate all logs in the evaluation set."""
     eval_results = []
     for log_record in tqdm(eval_set):
-        eval_result = await evaluate_log_record(
-            eval_agent, log_record, user_prompt_format
-        )
-        eval_results.append((log_record, eval_result))
+        try:
+            eval_result = await evaluate_log_record(
+                eval_agent, log_record, user_prompt_format
+            )
+            eval_results.append((log_record, eval_result))
+        except Exception as e:
+            print(f"Error evaluating log {log_record.get('log_file')}: {e}")
+            continue
 
     return eval_results
 
@@ -310,8 +316,6 @@ async def generate_logs(log_dir):
     )
     print(len(ml_system_design_chunks))
 
-    repo_data = ml_system_design_repo
-
     embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
     docs_vindex = create_vector_index(ml_system_design_chunks)
 
@@ -320,7 +324,7 @@ async def generate_logs(log_dir):
     _, question_generator = setup_agents()
 
     questions = await generate_test_questions(
-        question_generator, repo_data, num_samples=10
+        question_generator, ml_system_design_repo, num_samples=10
     )
 
     # Run agent on questions
