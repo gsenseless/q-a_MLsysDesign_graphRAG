@@ -63,7 +63,7 @@ uv run streamlit run src/app.py
 
 The repository features a robust evaluation framework to benchmark agent performance.
 
-### How it Works (UI)
+### How it Works:
 
 Navigate to the **Evaluation** tab in the Streamlit UI to:
 1. **Generate Questions**: Automatically creates test questions based on repository content using an LLM.
@@ -76,8 +76,15 @@ Navigate to the **Evaluation** tab in the Streamlit UI to:
     - completeness
     - tool_call_search
 
-### Logic Implementation (`src/eval.py`)
+## Logic Implementation (`src/eval.py`)
 
 - **Question Generation**: Uses a Mistral model to generate diverse questions from randomly sampled document chunks.
 - **Automated Scoring**: An independent `eval_agent` (LLM-based) evaluates the agent's responses against a predefined checklist.
+
+## Why GraphRAG?
+
+Initial attempts using standard Vector RAG proved insufficient for navigating the repository effectively. For example, when asking *"What are the main sections in ML system design doc?"*, a standard RAG system typically retrieves information from `bookOutline.md`. While this file seems relevant, the correct answer is actually located in the example template file.
+
+Standard RAG fails in these cases because it lacks awareness of the folder/file structure and does not even know the names of the files it is searching. This lack of structural context is why the project transitioned to GraphRAG, enabling the agent to understand the repository's organization and retrieve the most accurate information.
+
 
