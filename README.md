@@ -61,26 +61,32 @@ To run the Streamlit app:
 uv run streamlit run src/app.py
 ```
 
-![Streamlit UI](assets/images/image.png)
 
-![Source Attribution](assets/images/image-1.png)
-
+<p align="center">
+  <img src="assets/images/image.png" width="500" alt="Streamlit UI">
+</p>
 
 Navigate to `http://localhost:8501` in your web browser to access the Streamlit interface.
-![alt text](image.png)
 
 Ask a question and view the sources used to generate the answer:
-![alt text](image-1.png)
+
+<p align="center">
+  <img src="assets/images/image-1.png" width="400" alt="Source Attribution">
+</p>
+
 
 ## Evaluation
 
 The repository features a robust evaluation framework to benchmark agent performance.
 
 ### How it Works:
-![alt text](image-2.png)
+
 Navigate to the **Evaluation** tab in the Streamlit UI to:
 
-![Agent Evaluation](assets/images/image-2.png)
+<p align="center">
+  <img src="assets/images/image-2.png" width="500" alt="Agent Evaluation">
+</p>
+
 
 1. **Generate Questions**: Automatically creates test questions based on repository content using an LLM.
 2. **Run Benchmark**: Executes the agent on the generated questions.
