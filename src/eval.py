@@ -237,13 +237,11 @@ async def run_agent_on_questions(agent, questions, log_dir):
         print()
 
 
-def load_evaluation_set(LOG_DIR, agent_name="repo_agent"):
+def load_evaluation_set(LOG_DIR):
     """Load evaluation set from log files."""
     eval_set = []
     for log_file in LOG_DIR.glob("*.json"):
-        if agent_name not in log_file.name:
-            continue
-
+        
         log_record = load_log_file(log_file)
         if log_record["source"] != "ai-generated":
             continue
@@ -326,6 +324,7 @@ async def generate_logs(log_dir):
     questions = await generate_test_questions(
         question_generator, ml_system_design_repo, num_samples=10
     )
+    questions = random.sample(questions, min(len(questions), 50))
 
     # Run agent on questions
     await run_agent_on_questions(agent, questions, log_dir)
@@ -355,7 +354,7 @@ async def evaluate_existing_logs(log_dir):
 
 async def main():
     log_dir = Path("logs")
-    # await generate_logs(log_dir)
+    await generate_logs(log_dir)
     await evaluate_existing_logs(log_dir)
 
 
