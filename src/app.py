@@ -147,12 +147,18 @@ with tab_eval:
             # We use run_sync manually here to match the sync context
             sample = random.sample(repo_data, 10)
             questions = []
-            for item in sample:
+            q_gen_progress = st.progress(0.0)
+            for i, item in enumerate(sample):
+                filename = item.get("filename", "unknown")
+                status_container.write(f"Generating questions from sample {i+1}/{len(sample)}: `{filename}`...")
                 try:
                     q_gen_result = question_generator.run_sync(json.dumps(item))
                     questions.extend(q_gen_result.output.questions)
                 except Exception as e:
                     status_container.warning(f"Error generating question from sample: {e}")
+                q_gen_progress.progress((i + 1) / len(sample))
+            
+            q_gen_progress.empty() # Remove progress bar when done
             
             if not questions:
                 st.error("Failed to generate any questions. Aborting evaluation.")
