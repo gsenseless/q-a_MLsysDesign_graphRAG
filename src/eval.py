@@ -139,22 +139,67 @@ async def evaluate_log_record(eval_agent, log_record, user_prompt_format):
 
 
 def get_evaluation_prompt():
+    ### reasoning field in JSON is not used but it should help the model to think deeper.
     return """
-Use this checklist to evaluate the quality of an AI agent's answer (<ANSWER>) to a user question (<QUESTION>).
-We also include the entire log (<LOG>) for analysis.
+You are a QA Evaluator for a RAG (Retrieval Augmented Generation) system.
+Your goal is to identify actual failures (hallucinations, missing key answers, or bad logic) while ignoring minor stylistic nitpicks.
 
-For each item, check if the condition is met. 
+Input Data:
+<QUESTION>
+{{question}}
+</QUESTION>
 
-Checklist:
+<ANSWER>
+{{answer}}
+</ANSWER>
 
-- instructions_follow: The agent followed the user's instructions (in <INSTRUCTIONS>)
-- answer_relevant: The response directly addresses the user's question  
-- answer_clear: The answer is clear and correct  
-- answer_citations: The response includes proper citations or sources when required  
-- completeness: The response is complete and covers all key aspects of the request
-- tool_call_search: Is the search tool invoked? 
+<LOG>
+{{log}}
+</LOG>
 
-Output true/false for each check.
+Evaluate the following 4 metrics. 
+For each metric, determine a status (TRUE/FALSE) and provide a short reason.
+
+METRICS:
+
+1. **factually_grounded**: 
+   - Check the `tool-return` chunks in the LOG. 
+   - Does the ANSWER contradict the information in the chunks?
+   - Does the ANSWER contain specific data (dates, names, types) that is NOT present in the chunks? (General knowledge is okay, specific fabricated data is a failure).
+   - *Guideline:* If the answer is supported by the context or reasonably inferred from it, mark TRUE. If it invents facts, mark FALSE.
+
+2. **key_information_retrieved**:
+   - Looking at the chunks, was there a direct answer to the user's question that the Agent missed?
+   - Example: If the text lists "5 types of fruit" and the Agent says "I don't know" or only lists 1, mark FALSE.
+   - Example: If the text lists "5 types of fruit" and the Agent lists all 5 or summarizes them accurately, mark TRUE.
+
+3. **search_relevance**:
+   - Look at the `tool_call` input arguments.
+   - Did the agent search for the correct *concepts* found in the User Question?
+   - *Guideline:* Mark FALSE only if the search query was totally irrelevant or if the agent failed to search when it clearly needed to.
+
+5. **formatting_compliance**:
+   - Does the answer use Markdown structure (bullet points, bolding) effectively to match the structure of the retrieved data?
+
+Output Format (JSON):
+{
+  "factually_grounded": {
+    "passed": boolean,
+    "reasoning": "..."
+  },
+  "key_information_retrieved": {
+    "passed": boolean,
+    "reasoning": "..."
+  },
+  "search_relevance": {
+    "passed": boolean,
+    "reasoning": "..."
+  },
+  "formatting_compliance": {
+    "passed": boolean,
+    "reasoning": "brief explanation"
+  }
+}
 """.strip()
 
 
