@@ -53,7 +53,7 @@ uv sync
 
 ## Streamlit UI (Usage)
 
-The project includes a Streamlit-based web interface for an interactive Q&A experience and automated evaluation.
+The project includes a Streamlit-based web interface for an interactive Q&A experience.
 
 To run the Streamlit app:
 
@@ -79,29 +79,41 @@ Ask a question and view the sources used to generate the answer:
 
 The repository features a robust evaluation framework to benchmark agent performance.
 
+### Running Evaluation:
+
+```bash
+uv run python src/eval.py
+```
+
 ### How it Works:
 
-Navigate to the **Evaluation** tab in the Streamlit UI to:
+The evaluation script (`src/eval.py`) performs the following steps:
 
-<p align="center">
-  <img src="assets/images/image-2.png" width="500" alt="Agent Evaluation">
-</p>
+1. **Generate Questions**: Automatically creates test questions based on repository content using an LLM (Mistral).
+2. **Run Benchmark**: Executes the agent on the generated questions and logs the interactions to the `logs/` directory.
+3. **Analyze Results**: Uses an **LLM-as-a-Judge** approach (with an independent `eval_agent`) to evaluate the agent's responses against a predefined checklist and prints the performance metrics.
 
+#### Metrics Evaluated:
+- **factually_grounded**: Checks if the answer is supported by retrieved context.
+- **key_information_retrieved**: Checks if the agent missed direct answers present in the context.
+- **search_relevance**: Evaluates if the agent's search queries were relevant to the question.
+- **formatting_compliance**: Checks for proper Markdown structure.
 
-1. **Generate Questions**: Automatically creates test questions based on repository content using an LLM.
-2. **Run Benchmark**: Executes the agent on the generated questions.
-3. **Analyze Results**: View a detailed breakdown of performance metrics, including passing rates for:
-    - instruction_follow
-    - answer_relevant
-    - answer_clear
-    - answer_citations
-    - completeness
-    - tool_call_search
+#### Example output:
 
-#### Logic Implementation (`src/eval.py`)
-
-- **Question Generation**: Uses a Mistral model to generate diverse questions from randomly sampled document chunks.
-- **Automated Scoring**: An independent `eval_agent` (LLM-based) evaluates the agent's responses against a predefined checklist.
+```bash
+============================================================
+FINAL EVALUATION REPORT
+Total Questions Evaluated: 48
+------------------------------------------------------------
+                   Metric Score
+       factually_grounded 97.9%
+key_information_retrieved 97.9%
+         search_relevance 97.9%
+        citation_accuracy 14.6%
+    formatting_compliance 93.8%
+============================================================
+```
 
 ## Why GraphRAG?
 

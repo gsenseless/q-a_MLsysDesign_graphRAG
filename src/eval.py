@@ -142,7 +142,7 @@ def get_evaluation_prompt():
     ### reasoning field in JSON is not used but it should help the model to think deeper.
     return """
 You are a QA Evaluator for a RAG (Retrieval Augmented Generation) system.
-Your goal is to identify actual failures (hallucinations, missing key answers, or bad logic) while ignoring minor stylistic nitpicks.
+Your goal is to identify actual failures (hallucinations, missing key answers, or bad logic) while ignoring stylistic nitpicks.
 
 Input Data:
 <QUESTION>
@@ -178,6 +178,10 @@ METRICS:
    - Did the agent search for the correct *concepts* found in the User Question?
    - *Guideline:* Mark FALSE only if the search query was totally irrelevant or if the agent failed to search when it clearly needed to.
 
+4. **citation_accuracy**:
+   - Does the answer reference the specific source filename (found in the 'filename' field of the chunks, e.g., 'CONTRIBUTING.md')? 
+   - General phrases like "the repository" or "the context" are insufficient. It must cite the specific document name.
+
 5. **formatting_compliance**:
    - Does the answer use Markdown structure (bullet points, bolding) effectively to match the structure of the retrieved data?
 
@@ -194,6 +198,10 @@ Output Format (JSON):
   "search_relevance": {
     "passed": boolean,
     "reasoning": "..."
+  },
+  "citation_accuracy": {
+    "passed": boolean,
+    "reasoning": "brief explanation"
   },
   "formatting_compliance": {
     "passed": boolean,
@@ -367,9 +375,9 @@ async def generate_logs(log_dir):
     _, question_generator = setup_agents()
 
     questions = await generate_test_questions(
-        question_generator, ml_system_design_repo, num_samples=10
+        question_generator, ml_system_design_repo, num_samples=30
     )
-    questions = random.sample(questions, min(len(questions), 50))
+    questions = random.sample(questions, min(len(questions), 100))
 
     # Run agent on questions
     await run_agent_on_questions(agent, questions, log_dir)
@@ -394,7 +402,20 @@ async def evaluate_existing_logs(log_dir):
 
     # Create results dataframe
     df_evals = create_results_dataframe(eval_results)
-    print(df_evals.mean(numeric_only=True))
+    
+    # Generate enhanced report
+    mean_scores = df_evals.mean(numeric_only=True)
+    report_df = pd.DataFrame({
+        "Metric": mean_scores.index,
+        "Score": (mean_scores.values * 100).round(1).astype(str) + "%"
+    })
+    
+    print("\n" + "="*60)
+    print(f"FINAL EVALUATION REPORT")
+    print(f"Total Questions Evaluated: {len(df_evals)}")
+    print("-" * 60)
+    print(report_df.to_string(index=False))
+    print("="*60 + "\n")
 
 
 async def main():
