@@ -24,21 +24,10 @@ Edit `.env` to include your `MISTRAL_API_KEY`.
 
 ### 2. Run Neo4j Database
 
-You can start the Neo4j database using Docker Compose:
+Using Docker Compose:
 
 ```bash
 docker compose up -d
-```
-
-Or using a direct docker run command:
-
-```bash
-docker run \
-    -d \
-    --name neo4j_rag \
-    -p 7474:7474 -p 7687:7687 \
-    -e NEO4J_AUTH=neo4j/password \
-    neo4j:latest
 ```
 
 Wait a few seconds for the database to initialize before running the application.
