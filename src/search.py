@@ -235,8 +235,7 @@ class Neo4jGraphIndex:
             self.query(cypher, {"batch": update_data})
 
 
-def create_vector_index(chunks):
-    embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
+def create_vector_index(chunks, embedding_model):
     embedding_dim = embedding_model.get_sentence_embedding_dimension()
 
     index = Neo4jGraphIndex(NEO4J_URI, (NEO4J_USERNAME, NEO4J_PASSWORD))
@@ -260,7 +259,7 @@ if __name__ == "__main__":
     )
     print(f"Chunks length: {len(ml_system_design_chunks)}")
 
-    embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
+    embedding_model = SentenceTransformer(os.getenv("EMBEDDING_MODEL_NAME", "multi-qa-distilbert-cos-v1"))
     docs_vindex = create_vector_index(ml_system_design_chunks)
 
     query = "list essential sections of ml system design doc?"

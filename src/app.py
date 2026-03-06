@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
@@ -36,7 +37,7 @@ def initialize_resources():
         )
 
         st.write("Loading embedding model...")
-        embedding_model = SentenceTransformer("multi-qa-distilbert-cos-v1")
+        embedding_model = SentenceTransformer(os.getenv("EMBEDDING_MODEL_NAME", "multi-qa-distilbert-cos-v1"))
 
         st.write("Creating vector index...")
         docs_vindex = create_vector_index(ml_system_design_chunks)
