@@ -55,7 +55,7 @@ def setup_repository(repo_name: str, repo_folder: str):
     print(f"Chunks length: {len(chunks)}")
 
     embedding_model = SentenceTransformer(os.getenv("EMBEDDING_MODEL_NAME", "multi-qa-distilbert-cos-v1"))
-    docs_vindex = create_vector_index(chunks)
+    docs_vindex = create_vector_index(chunks, embedding_model)
 
     return docs_vindex, embedding_model
 

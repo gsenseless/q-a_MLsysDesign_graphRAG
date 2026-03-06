@@ -40,7 +40,7 @@ def initialize_resources():
         embedding_model = SentenceTransformer(os.getenv("EMBEDDING_MODEL_NAME", "multi-qa-distilbert-cos-v1"))
 
         st.write("Creating vector index...")
-        docs_vindex = create_vector_index(ml_system_design_chunks)
+        docs_vindex = create_vector_index(ml_system_design_chunks, embedding_model)
 
         return docs_vindex, embedding_model
 

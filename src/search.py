@@ -260,7 +260,7 @@ if __name__ == "__main__":
     print(f"Chunks length: {len(ml_system_design_chunks)}")
 
     embedding_model = SentenceTransformer(os.getenv("EMBEDDING_MODEL_NAME", "multi-qa-distilbert-cos-v1"))
-    docs_vindex = create_vector_index(ml_system_design_chunks)
+    docs_vindex = create_vector_index(ml_system_design_chunks, embedding_model)
 
     query = "list essential sections of ml system design doc?"
     results = vector_search(query, docs_vindex, embedding_model)
