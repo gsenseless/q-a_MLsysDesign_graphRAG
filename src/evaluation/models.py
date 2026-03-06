@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from pydantic_ai import Agent
 
 
 class EvaluationCheck(BaseModel):
@@ -33,7 +32,7 @@ Input Data:
 {{log}}
 </LOG>
 
-Evaluate the following 4 metrics.
+Evaluate the following 5 metrics.
 For each metric, determine a status (TRUE/FALSE) and provide a short reason.
 
 METRICS:

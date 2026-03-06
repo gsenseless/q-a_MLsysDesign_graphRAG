@@ -12,25 +12,25 @@ from .logging import load_log_file, simplify_log_messages
 from .agents import setup_agents
 
 
+def extract_question_from_messages(messages: list) -> str:
+    """Extract the user question from agent messages."""
+    for m in messages:
+        for part in m["parts"]:
+            if part["part_kind"] == "user-prompt":
+                return part["content"]
+    return "Unknown Question"
+
+
 async def evaluate_log_record(
     eval_agent: Agent,
     log_record: dict,
     user_prompt_format: str,
 ) -> EvaluationChecklist:
     """Evaluate a single log record."""
-    from .models import EvaluationChecklist
-
     messages = log_record["messages"]
 
     instructions = log_record["system_prompt"]
-    question = "Unknown Question"
-    for m in messages:
-        for part in m["parts"]:
-            if part["part_kind"] == "user-prompt":
-                question = part["content"]
-                break
-        if question != "Unknown Question":
-            break
+    question = extract_question_from_messages(messages)
     answer = messages[-1]["parts"][0]["content"]
 
     log_simplified = simplify_log_messages(messages)
@@ -83,15 +83,7 @@ def create_results_dataframe(eval_results: list) -> pd.DataFrame:
     for log_record, eval_result in eval_results:
         messages = log_record["messages"]
 
-        # Find the user question
-        question = "Unknown Question"
-        for m in messages:
-            for part in m["parts"]:
-                if part["part_kind"] == "user-prompt":
-                    question = part["content"]
-                    break
-            if question != "Unknown Question":
-                break
+        question = extract_question_from_messages(messages)
 
         row = {
             "file": log_record["log_file"].name,

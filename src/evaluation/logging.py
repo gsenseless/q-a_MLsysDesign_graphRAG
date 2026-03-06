@@ -33,8 +33,9 @@ def log_entry(agent, messages, source: str = "user") -> dict:
     }
 
 
-def log_interaction_to_file(agent, messages, log_dir: Path, source: str = "user") -> Path:
+def log_interaction_to_file(agent, messages, log_dir: Path | str, source: str = "user") -> Path:
     """Log an agent interaction to a JSON file."""
+    log_dir = Path(log_dir) if isinstance(log_dir, str) else log_dir
     entry = log_entry(agent, messages, source)
 
     ts = entry["messages"][-1]["timestamp"]
@@ -52,9 +53,10 @@ def log_interaction_to_file(agent, messages, log_dir: Path, source: str = "user"
 
 def load_log_file(log_file: Path | str) -> dict:
     """Load a log file and add the filepath to the data."""
-    with Path(log_file).open() as f_in:
+    log_file = Path(log_file) if isinstance(log_file, str) else log_file
+    with log_file.open() as f_in:
         log_data = json.load(f_in)
-        log_data["log_file"] = Path(log_file)
+        log_data["log_file"] = log_file
         return log_data
 
 
