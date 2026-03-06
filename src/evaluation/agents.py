@@ -6,13 +6,13 @@ from typing import Any
 from pydantic_ai import Agent
 from tqdm.auto import tqdm
 
+from .logging import log_interaction_to_file
 from .models import (
     EvaluationChecklist,
     QuestionsList,
     get_evaluation_prompt,
     get_question_generation_prompt,
 )
-from .logging import log_interaction_to_file
 
 
 def setup_eval_agent() -> Agent:

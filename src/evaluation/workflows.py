@@ -7,9 +7,9 @@ import pandas as pd
 from pydantic_ai import Agent
 from tqdm.auto import tqdm
 
-from .models import EvaluationChecklist
-from .logging import load_log_file, simplify_log_messages
 from .agents import setup_agents
+from .logging import load_log_file, simplify_log_messages
+from .models import EvaluationChecklist
 
 
 def extract_question_from_messages(messages: list) -> str:

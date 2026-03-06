@@ -4,7 +4,7 @@ This script generates test questions and evaluates the agent's responses.
 """
 from pathlib import Path
 
-from evaluation import generate_logs, evaluate_existing_logs
+from evaluation import evaluate_existing_logs, generate_logs
 
 
 async def main() -> None:
