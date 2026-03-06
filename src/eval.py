@@ -294,7 +294,7 @@ def load_evaluation_set(LOG_DIR):
     """Load evaluation set from log files."""
     eval_set = []
     for log_file in LOG_DIR.glob("*.json"):
-        
+
         log_record = load_log_file(log_file)
         if log_record["source"] != "ai-generated":
             continue
@@ -402,16 +402,16 @@ async def evaluate_existing_logs(log_dir):
 
     # Create results dataframe
     df_evals = create_results_dataframe(eval_results)
-    
+
     # Generate enhanced report
     mean_scores = df_evals.mean(numeric_only=True)
     report_df = pd.DataFrame({
         "Metric": mean_scores.index,
         "Score": (mean_scores.values * 100).round(1).astype(str) + "%"
     })
-    
+
     print("\n" + "="*60)
-    print(f"FINAL EVALUATION REPORT")
+    print("FINAL EVALUATION REPORT")
     print(f"Total Questions Evaluated: {len(df_evals)}")
     print("-" * 60)
     print(report_df.to_string(index=False))
