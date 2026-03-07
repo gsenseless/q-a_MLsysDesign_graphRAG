@@ -10,6 +10,10 @@ from tqdm.auto import tqdm
 from .agents import setup_agents
 from .logging import load_log_file, simplify_log_messages
 from .models import EvaluationChecklist
+from .rate_limiter import (
+    estimate_tokens,
+    with_token_rate_limit,
+)
 
 
 def extract_question_from_messages(messages: list) -> str:
@@ -40,7 +44,16 @@ async def evaluate_log_record(
         instructions=instructions, question=question, answer=answer, log=log
     )
 
-    result = await eval_agent.run(user_prompt, output_type=EvaluationChecklist)
+    # Note: user_prompt already contains log, so just estimate the full prompt
+    estimated_input = estimate_tokens(user_prompt)
+
+    result = await with_token_rate_limit(
+        eval_agent.run,
+        user_prompt,
+        output_type=EvaluationChecklist,
+        estimated_input_tokens=estimated_input,
+        estimated_output_tokens=500,
+    )
     return result.output
 
 

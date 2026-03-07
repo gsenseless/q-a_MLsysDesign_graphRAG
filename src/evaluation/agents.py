@@ -13,6 +13,7 @@ from .models import (
     get_evaluation_prompt,
     get_question_generation_prompt,
 )
+from .rate_limiter import estimate_tokens, with_token_rate_limit
 
 
 def setup_eval_agent() -> Agent:
@@ -61,7 +62,12 @@ async def generate_test_questions(
         prompt_docs = [d["content"] for d in batch]
         prompt = json.dumps(prompt_docs)
 
-        result = await question_generator.run(prompt)
+        result = await with_token_rate_limit(
+            question_generator.run,
+            prompt,
+            estimated_input_tokens=estimate_tokens(prompt),
+            estimated_output_tokens=300,
+        )
         questions.extend(result.output.questions)
 
     return questions
@@ -79,8 +85,13 @@ async def run_agent_on_questions(
         print(q)
 
         try:
-            result = await agent.run(user_prompt=q)
-            print(result.output)
+            result = await with_token_rate_limit(
+                agent.run,
+                user_prompt=q,
+                estimated_input_tokens=estimate_tokens(q) + 500,
+                estimated_output_tokens=500,
+            )
+            print(result.output[:200])  # Truncate output to save display space
 
             log_interaction_to_file(
                 agent, result.new_messages(), log_dir, source="ai-generated"
