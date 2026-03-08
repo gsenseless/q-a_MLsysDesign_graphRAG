@@ -64,6 +64,15 @@ Ask a question and view the sources used to generate the answer:
 </p>
 
 
+## How it works [Under the Hood]
+
+The system operates as an autonomous agent rather than a traditional RAG pipeline.
+
+- **Agentic Decision Making**: Built with `pydantic_ai`, the agent doesn't just "receive" context. It is equipped with a `get_context` tool which it calls autonomously to retrieve repository fragments based on the user's query.
+- **Hybrid Search**: When `get_context` is called, it executes an optimized **Cypher query** in Neo4j that performs:
+    - **Tri-partite Retrieval**: Searches vector indexes for relevant folders, files, and chunks in a single pass.
+    - **Graph-Based Re-ranking**: Automatically "boosts" the score of text chunks if they belong to a folder or file that is also semantically relevant, leveraging the structural links in the knowledge graph.
+
 ## Evaluation
 
 The repository features a robust evaluation framework to benchmark agent performance.

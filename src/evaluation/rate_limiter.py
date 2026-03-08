@@ -4,7 +4,7 @@ import asyncio
 import os
 import warnings
 from collections import deque
-from typing import Callable
+from collections.abc import Callable
 
 # Token limits
 MAX_TOKENS_PER_MINUTE = int(os.getenv("MAX_TOKENS_PER_MINUTE", "20000"))
@@ -226,7 +226,6 @@ def estimate_json_tokens(data: dict, max_depth: int = 3) -> int:
 
 def get_log_token_estimate(messages: list) -> int:
     """Estimate token count for a log's messages."""
-    import json
 
     # Create a simplified version for estimation
     simplified = []
