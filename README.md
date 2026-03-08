@@ -8,7 +8,7 @@ This project is a GraphRAG-based agent designed to answer questions about ML sys
 
 - **Python 3.12+**
 - **Docker** (for running Neo4j)
-- **uv** (recommended for package management)
+- **uv** (package management)
 
 ## Setup
 
