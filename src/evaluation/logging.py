@@ -13,7 +13,7 @@ def serializer(obj: object) -> str:
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
-def log_entry(agent, messages, source: str = "user") -> dict:
+def log_entry(agent, messages, source: str = "user", ground_truth: dict | None = None) -> dict:
     """Create a log entry from agent interaction."""
     tools = []
 
@@ -30,13 +30,16 @@ def log_entry(agent, messages, source: str = "user") -> dict:
         "tools": tools,
         "messages": dict_messages,
         "source": source,
+        "ground_truth": ground_truth,
     }
 
 
-def log_interaction_to_file(agent, messages, log_dir: Path | str, source: str = "user") -> Path:
+def log_interaction_to_file(
+    agent, messages, log_dir: Path | str, source: str = "user", ground_truth: dict | None = None
+) -> Path:
     """Log an agent interaction to a JSON file."""
     log_dir = Path(log_dir) if isinstance(log_dir, str) else log_dir
-    entry = log_entry(agent, messages, source)
+    entry = log_entry(agent, messages, source, ground_truth)
 
     ts = entry["messages"][-1]["timestamp"]
     ts_str = ts.strftime("%Y%m%d_%H%M%S")

@@ -88,53 +88,56 @@ uv run python src/eval.py
 The evaluation runs in two phases:
 
 **Phase 1 — Generate logs**
-1. Loads the ML-SystemDesign repository, processes it into chunks, and builds a vector index.
-2. An LLM generates realistic test questions from sampled repository content.
-3. The repo agent answers each question; the full interaction (search queries, retrieved chunks, answer) is saved to `logs/`.
+1. The repository is sliced into chunks and a vector index is built.
+2. A random sample of chunks is passed to the `question_generator` LLM. The LLM generates a realistic test question based on each chunk. The question and its exact source chunk (the `ground_truth`) are saved as a pair.
+3. ~15% of the test set is injected with artificially unrelated questions (e.g. "How to bake a cake?") to test the agent's ability to gracefully answer "I don't know".
+4. The RAG agent answers each question, and the full interaction log (including the `ground_truth` payload) is saved to the `logs/` directory.
 
 **Phase 2 — Judge logs**
-4. A separate `eval_agent` (LLM-as-a-Judge) reads each saved log — including the actual retrieved chunks — and scores the agent's response across 5 metrics.
-5. Scores are averaged and printed as a final report.
+5. A separate `eval_agent` (LLM-as-a-Judge) reads each saved log, extracting the explicit `ground_truth` original chunk and the RAG agent's logged behavior.
+6. The Judge scores the agent's response across 7 metrics by directly comparing the agent's response and search queries to the known source truth.
 
 ```mermaid
-flowchart TD
-    A[read_repo_data] --> B[process_repo_chunks]
-    B --> C[create_vector_index]
-    C --> D[create_repo_agent]
-    D --> E["question_generator<br>generates questions from<br>sampled repo docs"]
-    E --> F["repo_agent runs on<br>each question"]
-    F --> G["logs saved to logs/*.json<br>question · tool calls · answer"]
+flowchart LR
+    subgraph "Phase 1: Generation"
+        Chunks["Repo Chunks"] -->|Sample| Gen["Question Generator"]
+        Gen -->|Question + Source Chunk| Agent["RAG Agent"]
+        Agent -->|Perform Search &\nGenerate Answer| Logs[("JSON Logs\n(with ground_truth)")]
+    end
 
-    G --> H[load_evaluation_set]
-    H --> I["simplify_log_messages<br>strips metadata, keeps chunks"]
-    I --> J["eval_agent<br>LLM-as-a-Judge<br>scores 5 metrics per log"]
-    J --> K[FINAL EVALUATION REPORT]
-
-    style G fill:#f0f0f0,stroke:#999
-    style K fill:#d4edda,stroke:#28a745
+    subgraph "Phase 2: Evaluation"
+        Logs --> Judge["LLM Eval Agent"]
+        Judge -->|Compare behavior to\nGround Truth| Output["Final Score Report"]
+    end
+    
+    style Logs fill:#f0f0f0,stroke:#999
+    style Output fill:#d4edda,stroke:#28a745
 ```
 
 #### Metrics Evaluated:
-- **factually_grounded**: Checks if the answer is consistent with the retrieved chunks (no hallucinated facts).
-- **key_information_retrieved**: Checks if the agent missed a direct answer that was present in the retrieved chunks.
-- **search_relevance**: Evaluates if the agent's search queries matched the concepts in the question.
-- **citation_accuracy**: Checks if the answer cites specific source filenames (e.g. `CONTRIBUTING.md`) rather than vague phrases like "the repository".
+- **factually_grounded**: Checks if the answer is consistent with the ground truth chunk and gracefully passes if the agent correctly admits "I don't know" when information is deliberately absent.
+- **key_information_retrieved**: Checks if the agent successfully surfaced the direct answer to the user's question, based on what the ground truth contained.
+- **search_relevance**: Evaluates if the agent's search queries matched the core concepts in the question.
+- **citation_accuracy**: Checks if the answer cites specific source filenames rather than vague phrases like "the repository".
 - **formatting_compliance**: Checks for appropriate Markdown structure (bullets, bolding).
+- **chunk_retrieval_success**: A strict binary check guaranteeing the RAG search explicitly pulled the exact original `filename` that spawned the question.
+- **semantic_retrieval_success**: A softer check verifying that *any* of the retrieved chunks contain the same core factual information as the ground truth, gracefully handling redundant knowledge across multiple documents.
 
 #### Example output:
 
 ```bash
 ============================================================
 FINAL EVALUATION REPORT
-Total Questions Evaluated: 44
+Total Questions Evaluated: 25
 ------------------------------------------------------------
-                   Metric Score
-       factually_grounded  97.7%
-key_information_retrieved  95.5%
-         search_relevance 100.0%
-        citation_accuracy  38.6%
-    formatting_compliance 100.0%
-============================================================
+                    Metric  Score
+        factually_grounded  80.0%
+ key_information_retrieved  76.0%
+          search_relevance  92.0%
+         citation_accuracy  20.0%
+     formatting_compliance 100.0%
+   chunk_retrieval_success  72.0%
+semantic_retrieval_success  84.0%
 ```
 
 ## Why GraphRAG?

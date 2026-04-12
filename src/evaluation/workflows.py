@@ -25,11 +25,13 @@ _METRICS = (
     "search_relevance",
     "citation_accuracy",
     "formatting_compliance",
+    "chunk_retrieval_success",
+    "semantic_retrieval_success",
 )
 
 
 def _build_repo_agent():
-    """Load repo data, build chunks and vector index, return (agent, repo_data)."""
+    """Load repo data, build chunks and vector index, return (agent, repo_data, chunks)."""
     repo_data = read_repo_data("ML-SystemDesign", "MLSystemDesign")
     print(len(repo_data))
 
@@ -41,7 +43,7 @@ def _build_repo_agent():
     )
     docs_vindex = create_vector_index(chunks, embedding_model)
     agent = create_repo_agent(docs_vindex, embedding_model)
-    return agent, repo_data
+    return agent, repo_data, chunks
 
 
 def extract_question_from_messages(messages: list) -> str:
@@ -68,8 +70,17 @@ async def evaluate_log_record(
     log_simplified = simplify_log_messages(messages)
     log = json.dumps(log_simplified)
 
+    ground_truth = log_record.get("ground_truth", {})
+    gt_filename = ground_truth.get("filename", "unknown")
+    gt_content = ground_truth.get("chunk", "unknown")
+
     user_prompt = user_prompt_format.format(
-        instructions=instructions, question=question, answer=answer, log=log
+        instructions=instructions, 
+        question=question, 
+        answer=answer, 
+        log=log,
+        ground_truth_filename=gt_filename,
+        ground_truth_content=gt_content
     )
 
     estimated_input = estimate_tokens(user_prompt)
@@ -143,11 +154,44 @@ async def generate_logs(log_dir: Path | str) -> None:
 
     load_dotenv(".env")
 
-    agent, repo_data = _build_repo_agent()
+    agent, repo_data, chunks = _build_repo_agent()
 
     _, question_generator = setup_agents()
-    questions = await generate_test_questions(question_generator, repo_data, num_samples=30)
-    questions = random.sample(questions, min(len(questions), 100))
+    
+    # Generate ~85 real questions to leave room for 15 fake questions (total 100)
+    questions = await generate_test_questions(question_generator, chunks, num_samples=30)
+    questions = random.sample(questions, min(len(questions), 30))
+
+    # Inject ~15% fake completely irrelevant questions
+    num_fake_questions = int(len(questions) / 0.85 * 0.15)
+    if num_fake_questions == 0 and len(questions) > 0:
+        num_fake_questions = 1
+        
+    IRRELEVANT_QUESTIONS = [
+        "What is the capital of France?",
+        "How do I bake a chocolate cake?",
+        "What are the rules of basketball?",
+        "Who directed the movie Inception?",
+        "How does photosynthesis work?",
+        "What is the airspeed velocity of an unladen swallow?",
+        "How many planets are in the solar system?",
+        "Can you write a poem about a cat?",
+        "What's the best way to cook a steak?",
+        "Who wrote the play Hamlet?"
+    ]
+
+    for _ in range(num_fake_questions):
+        fake_gt = {
+            "file_name": "fake_document.md",
+            "filename": "fake_document.md",
+            "chunk": "This document contains no relevant information to the question. The answer is unknown."
+        }
+        questions.append({
+            "question": random.choice(IRRELEVANT_QUESTIONS),
+            "ground_truth": fake_gt
+        })
+        
+    random.shuffle(questions) # Shuffle so fake questions are interspersed
 
     await run_agent_on_questions(agent, questions, log_dir)
 
@@ -160,6 +204,11 @@ async def evaluate_existing_logs(log_dir: Path | str) -> None:
     user_prompt_format = """
         <INSTRUCTIONS>{instructions}</INSTRUCTIONS>
         <QUESTION>{question}</QUESTION>
+        <GROUND_TRUTH>
+        Filename: {ground_truth_filename}
+        Content:
+        {ground_truth_content}
+        </GROUND_TRUTH>
         <ANSWER>{answer}</ANSWER>
         <LOG>{log}</LOG>
         """.strip()
@@ -187,3 +236,15 @@ async def evaluate_existing_logs(log_dir: Path | str) -> None:
     print("-" * 60)
     print(report_df.to_string(index=False))
     print("=" * 60 + "\n")
+
+    # Save detailed results
+    reports_dir = Path("reports")
+    reports_dir.mkdir(exist_ok=True)
+
+    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+
+    # Save both summary and detailed results
+    report_df.to_csv(reports_dir / f"evaluation_summary_{timestamp}.csv", index=False)
+    df_evals.to_csv(reports_dir / f"evaluation_details_{timestamp}.csv", index=False)
+    print(f"Results saved to {reports_dir}/")
+

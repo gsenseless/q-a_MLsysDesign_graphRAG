@@ -12,6 +12,8 @@ class EvaluationChecklist(BaseModel):
     search_relevance: MetricResult
     citation_accuracy: MetricResult
     formatting_compliance: MetricResult
+    chunk_retrieval_success: MetricResult
+    semantic_retrieval_success: MetricResult
 
 
 class QuestionsList(BaseModel):

@@ -8,6 +8,12 @@ Input Data:
 {{question}}
 </QUESTION>
 
+<GROUND_TRUTH>
+Filename: {{ground_truth_filename}}
+Content:
+{{ground_truth_content}}
+</GROUND_TRUTH>
+
 <ANSWER>
 {{answer}}
 </ANSWER>
@@ -16,33 +22,38 @@ Input Data:
 {{log}}
 </LOG>
 
-Evaluate the following 5 metrics.
+Evaluate the following metrics.
 For each metric, determine a status (TRUE/FALSE) and provide a short reason.
 
 METRICS:
 
 1. **factually_grounded**:
-   - Check the `tool-return` chunks in the LOG.
-   - Does the ANSWER contradict the information in the chunks?
-   - Does the ANSWER contain specific data (dates, names, types) that is NOT present in the chunks? (General knowledge is okay, specific fabricated data is a failure).
-   - *Guideline:* If the answer is supported by the context or reasonably inferred from it, mark TRUE. If it invents facts, mark FALSE.
+   - Does the ANSWER accurately reflect the <GROUND_TRUTH>?
+   - *Guideline:* Mark TRUE if the answer is supported by the ground truth or the agent correctly stated it doesn't know. If it invents facts, mark FALSE.
 
 2. **key_information_retrieved**:
-   - Looking at the chunks, was there a direct answer to the user's question that the Agent missed?
-   - Example: If the text lists "5 types of fruit" and the Agent says "I don't know" or only lists 1, mark FALSE.
-   - Example: If the text lists "5 types of fruit" and the Agent lists all 5 or summarizes them accurately, mark TRUE.
+   - Was the direct answer to the user's question successfully provided in the ANSWER, based on the <GROUND_TRUTH>?
+   - Example: If the agent says "I don't know", mark FALSE (unless the ground truth truly doesn't contain the answer either, in which case mark TRUE).
 
 3. **search_relevance**:
    - Look at the `tool_call` input arguments.
    - Did the agent search for the correct *concepts* found in the User Question?
-   - *Guideline:* Mark FALSE only if the search query was totally irrelevant or if the agent failed to search when it clearly needed to.
 
 4. **citation_accuracy**:
-   - Does the answer reference the specific source filename (found in the 'filename' field of the chunks, e.g., 'CONTRIBUTING.md')?
-   - General phrases like "the repository" or "the context" are insufficient. It must cite the specific document name.
+   - Does the answer reference the specific source filename presented in <GROUND_TRUTH>? Or if it retrieved other relevant chunks, does it cite those filenames?
 
 5. **formatting_compliance**:
-   - Does the answer use Markdown structure (bullet points, bolding) effectively to match the structure of the retrieved data?
+   - Does the answer use Markdown structure (bullet points, bolding) effectively?
+
+6. **chunk_retrieval_success**:
+   - Check the `tool-return` chunks in the LOG. 
+   - Is the EXACT `Filename` from the <GROUND_TRUTH> present among the retrieved chunks?
+   - Mark TRUE if it successfully retrieved the original file, FALSE otherwise.
+
+7. **semantic_retrieval_success**:
+   - Check the `tool-return` chunks in the LOG.
+   - Does ANY retrieved chunk contain the *same factual information* required to answer the question as the original <GROUND_TRUTH> chunk? 
+   - This handles cases where redundant facts exist in multiple files. Mark TRUE if the retrieved chunks have equivalent meaning to the ground truth necessary to answer the question, FALSE if missing entirely.
 
 Output Format (JSON):
 {
@@ -63,6 +74,14 @@ Output Format (JSON):
     "reasoning": "brief explanation"
   },
   "formatting_compliance": {
+    "passed": boolean,
+    "reasoning": "brief explanation"
+  },
+  "chunk_retrieval_success": {
+    "passed": boolean,
+    "reasoning": "brief explanation"
+  },
+  "semantic_retrieval_success": {
     "passed": boolean,
     "reasoning": "brief explanation"
   }

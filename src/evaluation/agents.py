@@ -43,20 +43,19 @@ def setup_agents() -> tuple[Agent, Agent]:
 
 async def generate_test_questions(
     question_generator: Agent,
-    repo_data: list[dict[str, Any]],
+    chunks: list[dict[str, Any]],
     num_samples: int = 10,
-) -> list[str]:
-    """Generate test questions from data samples."""
-    num_samples = min(num_samples, len(repo_data))
-    sample = random.sample(repo_data, num_samples)
+) -> list[dict]:
+    """Generate test questions from data chunk samples."""
+    num_samples = min(num_samples, len(chunks))
+    sample = random.sample(chunks, num_samples)
 
-    questions = []
-    batch_size = 5
+    questions_with_docs = []
 
-    for i in tqdm(range(0, len(sample), batch_size), desc="Generating questions"):
-        batch = sample[i : i + batch_size]
-        prompt_docs = [d["content"] for d in batch]
-        prompt = json.dumps(prompt_docs)
+    for chunk in tqdm(sample, desc="Generating questions"):
+        prompt = chunk.get("chunk", "")
+        if not prompt:
+            continue
 
         result = await with_token_rate_limit(
             question_generator.run,
@@ -64,36 +63,38 @@ async def generate_test_questions(
             estimated_input_tokens=estimate_tokens(prompt),
             estimated_output_tokens=300,
         )
-        questions.extend(result.output.questions)
+        for q in result.output.questions:
+            questions_with_docs.append({"question": q, "ground_truth": chunk.copy()})
 
-    return questions
+    return questions_with_docs
 
 
 async def run_agent_on_questions(
     agent: Agent,
-    questions: list[str],
+    questions: list[dict],
     log_dir: Path | str,
 ) -> None:
     """Run the agent on generated questions and log interactions."""
     log_dir = Path(log_dir) if isinstance(log_dir, str) else log_dir
 
-    for q in tqdm(questions):
-        print(q)
+    for q_item in tqdm(questions):
+        q_text = q_item["question"]
+        print(q_text)
 
         try:
             result = await with_token_rate_limit(
                 agent.run,
-                user_prompt=q,
-                estimated_input_tokens=estimate_tokens(q) + 500,
+                user_prompt=q_text,
+                estimated_input_tokens=estimate_tokens(q_text) + 500,
                 estimated_output_tokens=500,
             )
             print(result.output[:200])  # Truncate output to save display space
 
             log_interaction_to_file(
-                agent, result.new_messages(), log_dir, source="ai-generated"
+                agent, result.new_messages(), log_dir, source="ai-generated", ground_truth=q_item.get("ground_truth")
             )
         except Exception as e:
-            print(f"Error running agent on question '{q}': {e}")
+            print(f"Error running agent on question '{q_text}': {e}")
             continue
 
         print()
