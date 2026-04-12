@@ -101,13 +101,13 @@ flowchart TD
     A[read_repo_data] --> B[process_repo_chunks]
     B --> C[create_vector_index]
     C --> D[create_repo_agent]
-    D --> E[question_generator\ngenerates questions from\nsampled repo docs]
-    E --> F[repo_agent runs on\neach question]
-    F --> G[logs saved to logs/*.json\nquestion · tool calls · answer]
+    D --> E["question_generator<br>generates questions from<br>sampled repo docs"]
+    E --> F["repo_agent runs on<br>each question"]
+    F --> G["logs saved to logs/*.json<br>question · tool calls · answer"]
 
     G --> H[load_evaluation_set]
-    H --> I[simplify_log_messages\nstrips metadata, keeps chunks]
-    I --> J[eval_agent\nLLM-as-a-Judge\nscores 5 metrics per log]
+    H --> I["simplify_log_messages<br>strips metadata, keeps chunks"]
+    I --> J["eval_agent<br>LLM-as-a-Judge<br>scores 5 metrics per log"]
     J --> K[FINAL EVALUATION REPORT]
 
     style G fill:#f0f0f0,stroke:#999
