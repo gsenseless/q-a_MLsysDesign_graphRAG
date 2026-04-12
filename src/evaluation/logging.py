@@ -79,8 +79,6 @@ def simplify_log_messages(messages: list) -> list:
                 del part["tool_call_id"]
                 del part["metadata"]
                 del part["timestamp"]
-                # Replace actual search results with placeholder to save tokens
-                part["content"] = "RETURN_RESULTS_REDACTED"
             if kind == "text":
                 del part["id"]
 

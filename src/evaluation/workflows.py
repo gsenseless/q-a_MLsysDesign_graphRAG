@@ -4,16 +4,44 @@ import random
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
 from pydantic_ai import Agent
+from sentence_transformers import SentenceTransformer
 from tqdm.auto import tqdm
 
-from .agents import setup_agents
+from agent import create_repo_agent
+from chunking import process_repo_chunks
+from get_repo_data import read_repo_data
+from search import create_vector_index
+
+from .agents import generate_test_questions, run_agent_on_questions, setup_agents
 from .logging import load_log_file, simplify_log_messages
 from .models import EvaluationChecklist
-from .rate_limiter import (
-    estimate_tokens,
-    with_token_rate_limit,
+from .rate_limiter import estimate_tokens, with_token_rate_limit
+
+_METRICS = (
+    "factually_grounded",
+    "key_information_retrieved",
+    "search_relevance",
+    "citation_accuracy",
+    "formatting_compliance",
 )
+
+
+def _build_repo_agent():
+    """Load repo data, build chunks and vector index, return (agent, repo_data)."""
+    repo_data = read_repo_data("ML-SystemDesign", "MLSystemDesign")
+    print(len(repo_data))
+
+    chunks = process_repo_chunks(repo_data, "sliding_window")
+    print(len(chunks))
+
+    embedding_model = SentenceTransformer(
+        os.getenv("EMBEDDING_MODEL_NAME", "multi-qa-distilbert-cos-v1")
+    )
+    docs_vindex = create_vector_index(chunks, embedding_model)
+    agent = create_repo_agent(docs_vindex, embedding_model)
+    return agent, repo_data
 
 
 def extract_question_from_messages(messages: list) -> str:
@@ -44,7 +72,6 @@ async def evaluate_log_record(
         instructions=instructions, question=question, answer=answer, log=log
     )
 
-    # Note: user_prompt already contains log, so just estimate the full prompt
     estimated_input = estimate_tokens(user_prompt)
 
     result = await with_token_rate_limit(
@@ -66,7 +93,6 @@ def load_evaluation_set(log_dir: Path | str) -> list[dict]:
         if log_record["source"] != "ai-generated":
             continue
         eval_set.append(log_record)
-
     return eval_set
 
 
@@ -86,7 +112,6 @@ async def evaluate_logs(
         except Exception as e:
             print(f"Error evaluating log {log_record.get('log_file')}: {e}")
             continue
-
     return eval_results
 
 
@@ -95,7 +120,6 @@ def create_results_dataframe(eval_results: list) -> pd.DataFrame:
     rows = []
     for log_record, eval_result in eval_results:
         messages = log_record["messages"]
-
         question = extract_question_from_messages(messages)
 
         row = {
@@ -103,26 +127,14 @@ def create_results_dataframe(eval_results: list) -> pd.DataFrame:
             "question": question,
             "answer": messages[-1]["parts"][0]["content"],
         }
-
-        checks = {c.check_name: c.check_pass for c in eval_result.checklist}
-        row.update(checks)
-
+        row.update({metric: getattr(eval_result, metric).passed for metric in _METRICS})
         rows.append(row)
 
-    df_evals = pd.DataFrame(rows)
-    return df_evals
+    return pd.DataFrame(rows)
 
 
 async def generate_logs(log_dir: Path | str) -> None:
-    """Generate test logs by running the agent on generated questions."""
-    from dotenv import load_dotenv
-    from sentence_transformers import SentenceTransformer
-
-    from agent import create_repo_agent
-    from chunking import process_repo_chunks
-    from get_repo_data import read_repo_data
-    from search import create_vector_index
-
+    """Phase 1: Run the repo agent on generated questions and save interaction logs."""
     log_dir = Path(log_dir)
     if log_dir.exists():
         for f in log_dir.glob("*.json"):
@@ -131,38 +143,17 @@ async def generate_logs(log_dir: Path | str) -> None:
 
     load_dotenv(".env")
 
-    ml_system_design_repo = read_repo_data("ML-SystemDesign", "MLSystemDesign")
-    print(len(ml_system_design_repo))
-
-    ml_system_design_chunks = process_repo_chunks(
-        ml_system_design_repo, "sliding_window"
-    )
-    print(len(ml_system_design_chunks))
-
-    embedding_model = SentenceTransformer(
-        os.getenv("EMBEDDING_MODEL_NAME", "multi-qa-distilbert-cos-v1")
-    )
-    docs_vindex = create_vector_index(ml_system_design_chunks, embedding_model)
-
-    agent = create_repo_agent(docs_vindex, embedding_model)
+    agent, repo_data = _build_repo_agent()
 
     _, question_generator = setup_agents()
-
-    from .agents import generate_test_questions, run_agent_on_questions
-
-    questions = await generate_test_questions(
-        question_generator, ml_system_design_repo, num_samples=30
-    )
+    questions = await generate_test_questions(question_generator, repo_data, num_samples=30)
     questions = random.sample(questions, min(len(questions), 100))
 
-    # Run agent on questions
     await run_agent_on_questions(agent, questions, log_dir)
 
 
 async def evaluate_existing_logs(log_dir: Path | str) -> None:
-    """Evaluate existing log files and generate a report."""
-    from dotenv import load_dotenv
-
+    """Phase 2: Score saved logs with an LLM-as-a-Judge and print the report."""
     log_dir = Path(log_dir)
     load_dotenv(".env")
 
@@ -180,10 +171,8 @@ async def evaluate_existing_logs(log_dir: Path | str) -> None:
 
     eval_results = await evaluate_logs(eval_agent, eval_set, user_prompt_format)
 
-    # Create results dataframe
     df_evals = create_results_dataframe(eval_results)
 
-    # Generate enhanced report
     mean_scores = df_evals.mean(numeric_only=True)
     report_df = pd.DataFrame(
         {

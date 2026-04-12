@@ -85,31 +85,55 @@ uv run python src/eval.py
 
 ### How it Works:
 
-The evaluation script (`src/eval.py`) performs the following steps:
+The evaluation runs in two phases:
 
-1. **Generate Questions**: Automatically creates test questions based on repository content using an LLM (Mistral).
-2. **Run Benchmark**: Executes the agent on the generated questions and logs the interactions to the `logs/` directory.
-3. **Analyze Results**: Uses an **LLM-as-a-Judge** approach (with an independent `eval_agent`) to evaluate the agent's responses against a predefined checklist and prints the performance metrics.
+**Phase 1 — Generate logs**
+1. Loads the ML-SystemDesign repository, processes it into chunks, and builds a vector index.
+2. An LLM generates realistic test questions from sampled repository content.
+3. The repo agent answers each question; the full interaction (search queries, retrieved chunks, answer) is saved to `logs/`.
+
+**Phase 2 — Judge logs**
+4. A separate `eval_agent` (LLM-as-a-Judge) reads each saved log — including the actual retrieved chunks — and scores the agent's response across 5 metrics.
+5. Scores are averaged and printed as a final report.
+
+```mermaid
+flowchart TD
+    A[read_repo_data] --> B[process_repo_chunks]
+    B --> C[create_vector_index]
+    C --> D[create_repo_agent]
+    D --> E[question_generator\ngenerates questions from\nsampled repo docs]
+    E --> F[repo_agent runs on\neach question]
+    F --> G[logs saved to logs/*.json\nquestion · tool calls · answer]
+
+    G --> H[load_evaluation_set]
+    H --> I[simplify_log_messages\nstrips metadata, keeps chunks]
+    I --> J[eval_agent\nLLM-as-a-Judge\nscores 5 metrics per log]
+    J --> K[FINAL EVALUATION REPORT]
+
+    style G fill:#f0f0f0,stroke:#999
+    style K fill:#d4edda,stroke:#28a745
+```
 
 #### Metrics Evaluated:
-- **factually_grounded**: Checks if the answer is supported by retrieved context.
-- **key_information_retrieved**: Checks if the agent missed direct answers present in the context.
-- **search_relevance**: Evaluates if the agent's search queries were relevant to the question.
-- **formatting_compliance**: Checks for proper Markdown structure.
+- **factually_grounded**: Checks if the answer is consistent with the retrieved chunks (no hallucinated facts).
+- **key_information_retrieved**: Checks if the agent missed a direct answer that was present in the retrieved chunks.
+- **search_relevance**: Evaluates if the agent's search queries matched the concepts in the question.
+- **citation_accuracy**: Checks if the answer cites specific source filenames (e.g. `CONTRIBUTING.md`) rather than vague phrases like "the repository".
+- **formatting_compliance**: Checks for appropriate Markdown structure (bullets, bolding).
 
 #### Example output:
 
 ```bash
 ============================================================
 FINAL EVALUATION REPORT
-Total Questions Evaluated: 48
+Total Questions Evaluated: 44
 ------------------------------------------------------------
                    Metric Score
-       factually_grounded 97.9%
-key_information_retrieved 97.9%
-         search_relevance 97.9%
-        citation_accuracy 14.6%
-    formatting_compliance 93.8%
+       factually_grounded  97.7%
+key_information_retrieved  95.5%
+         search_relevance 100.0%
+        citation_accuracy  38.6%
+    formatting_compliance 100.0%
 ============================================================
 ```
 

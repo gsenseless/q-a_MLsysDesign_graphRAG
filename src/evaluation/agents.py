@@ -7,12 +7,8 @@ from pydantic_ai import Agent
 from tqdm.auto import tqdm
 
 from .logging import log_interaction_to_file
-from .models import (
-    EvaluationChecklist,
-    QuestionsList,
-    get_evaluation_prompt,
-    get_question_generation_prompt,
-)
+from .models import EvaluationChecklist, QuestionsList
+from .prompts import get_evaluation_prompt, get_question_generation_prompt
 from .rate_limiter import estimate_tokens, with_token_rate_limit
 
 
